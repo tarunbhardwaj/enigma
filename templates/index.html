@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src='/static/encr.js'></script>
+    <script src='https://code.jquery.com/jquery-1.10.2.min.js'></script>
+    <style>
+      textarea {
+        width: 100%;
+        height: 200px;
+      }
+      input {
+        width: 100%;
+      }
+      button {
+        height: 30px;
+        padding: 0 30px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div>
+      {% if request.args.get('e') %}
+        <textarea style="display:none" id='plainText'></textarea>
+        <br/>
+        <center>
+          <button id="decr">Decrypt</button>
+          <a href="/">Click here to encrypt</a>
+        </center>
+      {% else %}
+        Enter plain text:
+        <textarea id='plainText'></textarea>
+        <br/>
+        Url to share:
+        <input type="text" readonly id="encrUrl" />
+        <br/>
+        <br/>
+        <center>
+          <button id="encr">Encrypt</button>
+        </center>
+      {% endif %}
+    </div>
+
+    <script>
+      $(function () {
+        function makeKey(n) {
+          var text = "";
+          var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+          for (var i = 0; i < n; i++)
+          text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+          return text;
+        }
+
+        $('#encr').click(function (e) {
+          e.preventDefault();
+          let plainTextElm = $('#plainText');
+          let key = makeKey(20);
+          let encrText = GibberishAES.enc(
+            plainTextElm.val(), key
+          );
+
+          $.post('/', {'encr': encrText})
+          .done(function (hash) {
+            $('#encrUrl').val(
+              location.protocol + '//' + location.host + '/?e=' + hash + '#' + key
+            );
+          })
+          .fail(function () {
+            alert('Only < 2000 chars allowed.');
+          });
+        });
+
+        $('#decr').click(function (e) {
+          e.preventDefault();
+          let hash = "{{ request.args.get('e') }}";
+          let plainTextElm = $('#plainText');
+          let key = window.location.hash.substring(1);
+          if (!key) {
+            alert('Link expired or invalid');
+            return;
+          }
+
+          $.post("{{ url_for('decode') }}", {'hash': hash})
+          .done(function (encrText) {
+              plainTextElm.show();
+              plainTextElm.val(GibberishAES.dec(
+                encrText, key
+              ));
+          })
+          .fail(function () {
+              alert('Link expired or invalid');
+            }
+          );
+        });
+      });
+    </script>
+  </body>
+</html>
