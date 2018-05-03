@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src='/static/encr.js'></script>
-    <script src='https://code.jquery.com/jquery-1.10.2.min.js'></script>
+    <script src="{{ url_for('static', filename='encr.js') }}"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <style>
       textarea {
         width: 100%;
@@ -14,6 +14,9 @@
       button {
         height: 30px;
         padding: 0 30px;
+      }
+      #urlBlock {
+        display: none;
       }
     </style>
   </head>
@@ -28,16 +31,19 @@
           <a href="/">Click here to encrypt</a>
         </center>
       {% else %}
-        Enter plain text:
-        <textarea id='plainText'></textarea>
-        <br/>
-        Url to share:
-        <input type="text" readonly id="encrUrl" />
-        <br/>
-        <br/>
-        <center>
-          <button id="encr">Encrypt</button>
-        </center>
+        <div id="inputBlock">
+          Enter plain text:
+          <textarea id='plainText'></textarea>
+          <br/>
+          <br/>
+          <center>
+            <button id="encr">Encrypt</button>
+          </center>
+        </div>
+        <div id="urlBlock">
+          Url to share:
+          <input type="text" readonly id="encrUrl" />
+        </div>
       {% endif %}
     </div>
 
@@ -61,38 +67,45 @@
             plainTextElm.val(), key
           );
 
-          $.post('/', {'encr': encrText})
+          $.post("{{ url_for('encode') }}", {'encr': encrText})
           .done(function (hash) {
+            plainTextElm.hide();
+            $('#inputBlock').hide();
+            $('#urlBlock').show();
             $('#encrUrl').val(
-              location.protocol + '//' + location.host + '/?e=' + hash + '#' + key
-            );
+              "{{ url_for('index', _external=True) }}?e=" + hash + '#' + key
+            ).select();
           })
-          .fail(function () {
-            alert('Only < 2000 chars allowed.');
+          .fail(function (e) {
+            alert(e.responseText);
           });
         });
 
         $('#decr').click(function (e) {
           e.preventDefault();
+          $(this).hide();
+
           let hash = "{{ request.args.get('e') }}";
           let plainTextElm = $('#plainText');
           let key = window.location.hash.substring(1);
+
           if (!key) {
-            alert('Link expired or invalid');
+            plainTextElm.show();
+            plainTextElm.val('Link expired or invalid!');
             return;
           }
 
           $.post("{{ url_for('decode') }}", {'hash': hash})
           .done(function (encrText) {
-              plainTextElm.show();
-              plainTextElm.val(GibberishAES.dec(
-                encrText, key
-              ));
+            plainTextElm.show();
+            plainTextElm.val(GibberishAES.dec(
+              encrText, key
+            ));
           })
-          .fail(function () {
-              alert('Link expired or invalid');
-            }
-          );
+          .fail(function (e) {
+            plainTextElm.show();
+            plainTextElm.val('Link expired or invalid!');
+          });
         });
       });
     </script>
